@@ -1,5 +1,6 @@
 package cz.vutbr.fit.twitterstorm.bolts;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -25,6 +26,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -81,16 +83,21 @@ public class IndexBolt implements IRichBolt {
 	BulkProcessor bulkProcessor;
 
 	IndexingStrategy strategy;
-	
+	private boolean ram;
 	String hostname;
 	private Monitoring monitor;
+	
+	private static Integer instances=0;
+	
+	
 	
 	/**
      * Creates a new IndexBolt.
      * @param id the id of actual twitterstorm run
      * @param strategy the actual indexing strategy, which can be internal (lucene), external (elasticsearch) or both
+     * @param ram
      */
-	public IndexBolt(String id,IndexingStrategy strategy){
+	public IndexBolt(String id,IndexingStrategy strategy,boolean ram){
 		try {
 			monitor=new Monitoring(id, "knot28.fit.vutbr.cz", "twitterstorm", "twitterstormdb88pass", "twitterstormdb");
 		} catch (SQLException e) {
@@ -98,18 +105,36 @@ public class IndexBolt implements IRichBolt {
 			e.printStackTrace();
 		}
 		this.strategy=strategy;
+		this.ram=ram;
 	}
 	
 	@Override
 	public void prepare(Map stormConf, TopologyContext context,
 			OutputCollector collector) {
 		this.collector=collector;
+		int nodeId;
+		synchronized(instances){
+			nodeId=++instances;
+		}
 		if (analyzer==null)
 			analyzer = new StandardAnalyzer(Version.LUCENE_CURRENT);
 		if (conf==null)
 			conf = new IndexWriterConfig(Version.LUCENE_CURRENT, analyzer);
-		if (directory==null)
-			directory = new RAMDirectory();
+		if (directory==null){
+			if (ram)
+				directory = new RAMDirectory();
+			else{
+				try {
+					String path=System.getProperty("user.home")+"/twitterindex/"+String.valueOf(nodeId)+"/";
+					File f=new File(path);
+					f.mkdirs();
+					directory=FSDirectory.open(f);
+				} catch (IOException e) {
+					directory=new RAMDirectory();
+					e.printStackTrace();
+				}
+			}
+		}
 		if (iw==null){
 	        try {
 				iw = new IndexWriter(directory, conf);
