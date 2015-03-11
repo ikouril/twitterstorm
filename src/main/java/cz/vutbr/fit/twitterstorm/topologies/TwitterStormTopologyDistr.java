@@ -49,7 +49,7 @@ public class TwitterStormTopologyDistr {
         POSBolt posBolt=new POSBolt(deploymentId);
         
         //IndexingStrategy decides where to store results (INTERNAL - lucene, EXTERNAL - elasticsearch or BOTH)
-        IndexBolt index=new IndexBolt(deploymentId,IndexingStrategy.BOTH,false);
+        IndexBolt index=new IndexBolt(deploymentId,IndexingStrategy.BOTH,true);
         GenderBolt gender=new GenderBolt(deploymentId);
         LemmaBolt lemma=new LemmaBolt(deploymentId);
         NERBolt ner=new NERBolt(deploymentId);

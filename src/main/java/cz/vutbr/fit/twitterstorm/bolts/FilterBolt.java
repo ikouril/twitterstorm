@@ -4,6 +4,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -11,6 +12,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +43,10 @@ public class FilterBolt implements IRichBolt {
 	private static final Logger log = LoggerFactory.getLogger(FilterBolt.class);
 	private Pattern pattern;
 	
+	private static final int VARIANT=0;
+	private static final int PART=1;
+	private static final int DATADISC=2;
+	
 	String hostname;
 	private Monitoring monitor;
 	
@@ -70,6 +76,39 @@ public class FilterBolt implements IRichBolt {
 		}
 		log.info("Starting to filter tweets with following regular expression: "+pattern.pattern());
 	}
+	
+	private String find(int gameId,String line,int type){
+		String[] source=null;
+		if (type==VARIANT)
+			source=TwitterStormTopology.variants[gameId];
+		else if (type==PART)
+			source=TwitterStormTopology.parts[gameId];
+		else
+			source=TwitterStormTopology.datadiscs[gameId];
+
+		if (source!=null){
+			StringBuilder builder=new StringBuilder();
+			builder.append("(");
+			builder.append(StringUtils.join(source,"|"));
+			builder.append(")");
+			
+			Pattern p=Pattern.compile(builder.toString(),Pattern.CASE_INSENSITIVE);
+			Matcher m=p.matcher(line);
+			String match="";
+			
+			//find longest match
+			while (m.find()){
+				String newMatch=m.group(1);
+				if (newMatch.length()>match.length())
+					match=newMatch;
+			}
+			if (!match.isEmpty())
+				return match;
+		}
+		
+		return null;
+	}
+	
 
 	@Override
 	public void execute(Tuple input) {
@@ -86,9 +125,23 @@ public class FilterBolt implements IRichBolt {
 			String text=tweet.getText();
 			Matcher m=pattern.matcher(text);
 	    	StringBuilder output=new StringBuilder();
+	    	StringBuilder datadiscOutput=new StringBuilder();
+	    	StringBuilder partOutput=new StringBuilder();
+	    	StringBuilder variantOutput=new StringBuilder();
 	    	Set<String> games=new HashSet<String>();
+	    	Map<String,String>datadiscs=new HashMap<String,String>();
+	    	Map<String,String>parts=new HashMap<String,String>();
+	    	Map<String,String>variants=new HashMap<String,String>();
 	        while (m.find()) {
-	            games.add(m.group(1));
+	        	String game=m.group(1);
+	        	int gameId=TwitterStormTopology.gameMap.get(game);
+	        	String datadisc=find(gameId,text,DATADISC);
+	        	String part=find(gameId,text,PART);
+	        	String variant=find(gameId,text,VARIANT);
+	        	datadiscs.put(game,datadisc);
+	        	parts.put(game, part);
+	        	variants.put(game, variant);
+	            games.add(game);
 	        }
 	        
 	    	if (games.size()>0){
@@ -105,10 +158,35 @@ public class FilterBolt implements IRichBolt {
 	            	if (output.length()!=0)
 	            		output.append(", ");
 	                output.append(game);
+	                
+	                if (datadiscOutput.length()!=0)
+	                	datadiscOutput.append(", ");
+	                
+	                String datadisc=datadiscs.get(game);
+	                if (datadisc!=null)
+	                	datadiscOutput.append(datadisc);
+	                
+	                if (variantOutput.length()!=0)
+	                	variantOutput.append(", ");
+	                
+	                String variant=variants.get(game);
+	                if (variant!=null)
+	                	variantOutput.append(variant);
+	                
+	                if (partOutput.length()!=0)
+	                	partOutput.append(", ");
+	                
+	                String part=parts.get(game);
+	                if (part!=null)
+	                	partOutput.append(part);
+	                
+	                
 	            }
 	    		tweet.setGame(output.toString());
-	    		tweets.add(tweet);
-	    		
+	    		tweet.setPart(partOutput.toString());
+	    		tweet.setDatadisc(datadiscOutput.toString());
+	    		tweet.setVariant(variantOutput.toString());
+	    		tweets.add(tweet);	
 	    	}
 		}
 		if (tweets.size()>0){

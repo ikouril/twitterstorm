@@ -4,6 +4,12 @@ package cz.vutbr.fit.twitterstorm.topologies;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -45,6 +51,10 @@ public class TwitterStormTopology {
 	public static final int GAMES=195;
 	public static final int BLOCK=100;
 	public static String[] keywords=new String[GAMES];
+	public static String[][] variants=new String[GAMES][];
+	public static String[][] parts=new String[GAMES][];
+	public static String[][] datadiscs=new String[GAMES][];
+	public static Map<String,Integer> gameMap=new HashMap<String,Integer>();
 	public static String pattern;
 	public static StanfordCoreNLP pipeline;
 	public static TransportClient client;
@@ -62,7 +72,9 @@ public class TwitterStormTopology {
 			int cnt=0;
 			patternBuilder.append("(");
 			while (line!=null){
-				keywords[cnt++]=line;
+				keywords[cnt]=line;
+				gameMap.put(line, cnt);
+				cnt++;
 				patternBuilder.append(line+"|");
 				line=reader.readLine();
 			}
@@ -71,11 +83,88 @@ public class TwitterStormTopology {
         catch (Exception e){
         	e.printStackTrace();
         }
+        int variantCounter=0;
         try{
-	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena1.fit.vutbr.cz/twitterstorm/allabbrevs.txt").openStream()));
+	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena1.fit.vutbr.cz/twitterstorm/name_variations.txt").openStream()));
 			String line=reader.readLine();
 			while (line!=null){
-				patternBuilder.append(line+"|");
+				List<String> vals=new ArrayList<String>();
+				String[] vars=line.split("\t");
+				for (String var:vars){
+					vals.add(var);
+				}
+				Collections.sort(vals, new Comparator<String>() {
+
+					@Override
+					public int compare(String o1, String o2) {
+						return o2.length() - o1.length();
+					}
+				});
+				String[] resultArray=new String[vals.size()];
+				variants[variantCounter++]=vals.toArray(resultArray);
+				line=reader.readLine();
+			}
+			reader.close();
+        }
+        catch (Exception e){
+        	e.printStackTrace();
+        }
+        int partCounter=0;
+        try{
+	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena1.fit.vutbr.cz/twitterstorm/name_part_variations.txt").openStream()));
+			String line=reader.readLine();
+			while (line!=null){
+				if (line.length()>0){
+					List<String> vals=new ArrayList<String>();
+					String[] vars=line.split("\t");
+					for (String var:vars){
+						vals.add(var);
+					}
+					Collections.sort(vals, new Comparator<String>() {
+
+						@Override
+						public int compare(String o1, String o2) {
+							return o2.length() - o1.length();
+						}
+					});
+					String[] resultArray=new String[vals.size()];
+					parts[partCounter++]=vals.toArray(resultArray);
+				}
+				else{
+					parts[partCounter++]=null;
+				}
+				line=reader.readLine();
+			}
+			reader.close();
+        }
+        catch (Exception e){
+        	e.printStackTrace();
+        }
+        
+        int datadiscCounter=0;
+        try{
+	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena1.fit.vutbr.cz/twitterstorm/datadisc_variants.txt").openStream()));
+			String line=reader.readLine();
+			while (line!=null){
+				if (line.length()>0){
+					List<String> vals=new ArrayList<String>();
+					String[] vars=line.split("\t");
+					for (String var:vars){
+						vals.add(var);
+					}
+					Collections.sort(vals, new Comparator<String>() {
+
+						@Override
+						public int compare(String o1, String o2) {
+							return o2.length() - o1.length();
+						}
+					});
+					String[] resultArray=new String[vals.size()];
+					datadiscs[datadiscCounter++]=vals.toArray(resultArray);
+				}
+				else{
+					datadiscs[datadiscCounter++]=null;
+				}
 				line=reader.readLine();
 			}
 			reader.close();

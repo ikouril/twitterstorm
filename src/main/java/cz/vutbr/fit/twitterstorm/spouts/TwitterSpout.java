@@ -115,7 +115,7 @@ public class TwitterSpout extends BaseRichSpout{
 		if (inputs.size()>0){
 			Tweet tweet=inputs.poll();
 			if (block.size()==blockSize){
-				log.info("Emmitting tweets");
+				log.info("Emitting tweets");
 				Long estimatedTime = System.nanoTime() - startTime;
 				String id=UUID.randomUUID().toString();
 				final ArrayList<Tweet> blockToSent=new ArrayList<Tweet>(block);

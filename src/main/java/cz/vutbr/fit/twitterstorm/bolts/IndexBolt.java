@@ -241,7 +241,7 @@ public class IndexBolt implements IRichBolt {
 				try {
 					ir = IndexReader.open(directory);
 					
-					Query q = new MultiFieldQueryParser(Version.LUCENE_CURRENT, new String[]{"game","author","text","person","sentiment","gender"}, analyzer).parse(queryString);
+					Query q = new MultiFieldQueryParser(Version.LUCENE_CURRENT, new String[]{"game","author","text","person","sentiment","gender","datadisc","variant","part"}, analyzer).parse(queryString);
 					IndexSearcher searcher = new IndexSearcher(ir);
 	
 					TopDocs results=searcher.search(q, 10);
@@ -262,6 +262,9 @@ public class IndexBolt implements IRichBolt {
 						t.setText(d.get("text"));
 						t.setSentiment(d.get("sentiment"));
 						t.setGender(d.get("gender"));
+						t.setDatadisc(d.get("datadisc"));
+						t.setVariant(d.get("variant"));
+						t.setPart(d.get("part"));
 						tweets.add(t);
 					}
 					log.info("Sending "+String.valueOf(tweets.size())+" scored tweets");
@@ -436,6 +439,9 @@ public class IndexBolt implements IRichBolt {
 				String author=tweet.getAuthor();
 				String text=tweet.getText();
 				Date date=tweet.getDate();
+				String datadisc=tweet.getDatadisc();
+				String part=tweet.getPart();
+				String variant=tweet.getVariant();
 				String dateString=date==null?"null":DateTools.dateToString(date, DateTools.Resolution.SECOND);
 				String person=tweet.getPerson();
 				String sentiment=tweet.getSentiment();
@@ -461,6 +467,9 @@ public class IndexBolt implements IRichBolt {
 					log.info("Indexing tweet");
 					Document document=new Document();
 					document.add(new Field("game",game, Field.Store.YES, Field.Index.ANALYZED));
+					document.add(new Field("datadisc",datadisc, Field.Store.YES, Field.Index.ANALYZED));
+					document.add(new Field("part",part, Field.Store.YES, Field.Index.ANALYZED));
+					document.add(new Field("variant",variant, Field.Store.YES, Field.Index.ANALYZED));
 					document.add(new Field("author",author, Field.Store.YES, Field.Index.ANALYZED));
 					document.add(new Field("text",text, Field.Store.YES, Field.Index.ANALYZED));
 					document.add(new Field("date",dateString, Field.Store.YES, Field.Index.ANALYZED));
@@ -479,6 +488,9 @@ public class IndexBolt implements IRichBolt {
 				if (strategy!=IndexingStrategy.INTERNAL){
 					Map<String, Object> json = new HashMap<String, Object>();
 					json.put("game",game);
+					json.put("datadisc",datadisc);
+					json.put("part",part);
+					json.put("variant",variant);
 					json.put("author",author);
 					json.put("text",text);
 					json.put("date", date);

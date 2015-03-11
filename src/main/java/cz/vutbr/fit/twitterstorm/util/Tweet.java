@@ -22,6 +22,9 @@ public class Tweet implements Serializable {
 	private String game;
 	private String sentiment;
 	private String gender;
+	private String datadisc;
+	private String part;
+	private String variant;
 	private Multiset<String> keywords;
 	private float score;
 	private Date date;
@@ -117,6 +120,30 @@ public class Tweet implements Serializable {
 
 	public void setSentiment(String sentiment) {
 		this.sentiment = sentiment;
+	}
+
+	public String getDatadisc() {
+		return datadisc;
+	}
+
+	public void setDatadisc(String datadisc) {
+		this.datadisc = datadisc;
+	}
+
+	public String getPart() {
+		return part;
+	}
+
+	public void setPart(String part) {
+		this.part = part;
+	}
+
+	public String getVariant() {
+		return variant;
+	}
+
+	public void setVariant(String variant) {
+		this.variant = variant;
 	}
 	
 	
