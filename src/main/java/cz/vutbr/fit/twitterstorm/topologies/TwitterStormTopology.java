@@ -13,13 +13,21 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
-import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.martiansoftware.jsap.FlaggedOption;
+import com.martiansoftware.jsap.JSAP;
+import com.martiansoftware.jsap.JSAPException;
+import com.martiansoftware.jsap.JSAPResult;
+import com.martiansoftware.jsap.Parameter;
+import com.martiansoftware.jsap.SimpleJSAP;
+import com.martiansoftware.jsap.Switch;
+import com.martiansoftware.jsap.UnflaggedOption;
 
 import cz.vutbr.fit.twitterstorm.bolts.GenderBolt;
 import cz.vutbr.fit.twitterstorm.bolts.LemmaBolt;
@@ -47,9 +55,10 @@ import backtype.storm.tuple.Fields;
  */
 public class TwitterStormTopology {
 	
-	public static final int PARALLELISM=4;
+	public static int PARALLELISM;
 	public static final int GAMES=195;
-	public static final int BLOCK=100;
+	public static int BLOCK;
+	public static String[] FILES;
 	public static String[] keywords=new String[GAMES];
 	public static String[][] variants=new String[GAMES][];
 	public static String[][] parts=new String[GAMES][];
@@ -67,7 +76,7 @@ public class TwitterStormTopology {
         
         StringBuilder patternBuilder=new StringBuilder();
         try{
-	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena1.fit.vutbr.cz/twitterstorm/allgames.txt").openStream()));
+	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena3.fit.vutbr.cz/twitterstorm/allgames.txt").openStream()));
 			String line=reader.readLine();
 			int cnt=0;
 			patternBuilder.append("(");
@@ -85,7 +94,7 @@ public class TwitterStormTopology {
         }
         int variantCounter=0;
         try{
-	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena1.fit.vutbr.cz/twitterstorm/name_variations.txt").openStream()));
+	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena3.fit.vutbr.cz/twitterstorm/name_variations.txt").openStream()));
 			String line=reader.readLine();
 			while (line!=null){
 				List<String> vals=new ArrayList<String>();
@@ -111,7 +120,7 @@ public class TwitterStormTopology {
         }
         int partCounter=0;
         try{
-	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena1.fit.vutbr.cz/twitterstorm/name_part_variations.txt").openStream()));
+	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena3.fit.vutbr.cz/twitterstorm/name_part_variations.txt").openStream()));
 			String line=reader.readLine();
 			while (line!=null){
 				if (line.length()>0){
@@ -143,7 +152,7 @@ public class TwitterStormTopology {
         
         int datadiscCounter=0;
         try{
-	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena1.fit.vutbr.cz/twitterstorm/datadisc_variants.txt").openStream()));
+	        BufferedReader reader=new BufferedReader(new InputStreamReader(new URL("http://athena3.fit.vutbr.cz/twitterstorm/datadisc_variants.txt").openStream()));
 			String line=reader.readLine();
 			while (line!=null){
 				if (line.length()>0){
@@ -180,7 +189,28 @@ public class TwitterStormTopology {
 		pipeline=new StanfordCoreNLP(props);
 	}
 	
-	public static void main(String[] params){
+	public static void main(String[] params) throws JSAPException{
+		
+		SimpleJSAP jsap = new SimpleJSAP( TwitterStormTopology.class.getName(), "Processes stream of tweets.",
+				new Parameter[] {
+					new FlaggedOption( "blockSize", JSAP.INTEGER_PARSER, "100", JSAP.NOT_REQUIRED, 'b', "blockSize", "Number of tweets to be processed in one block." ),
+					new FlaggedOption( "parallelism", JSAP.INTEGER_PARSER, "10", JSAP.NOT_REQUIRED, 'p', "paralelism", "Number parallel bolts." ),
+					new FlaggedOption( "indexing",JSAP.STRING_PARSER,"internal",JSAP.NOT_REQUIRED,'i',"indexing","Indexing strategy."),
+					new FlaggedOption( "files", JSAP.STRING_PARSER, "athena1.fit.vutbr.cz/twitterstorm/dump.json;athena2.fit.vutbr.cz/twitterstorm/dump.json;athena3.fit.vutbr.cz/twitterstorm/dump.json;athena4.fit.vutbr.cz/twitterstorm/dump.json;athena5.fit.vutbr.cz/twitterstorm/dump.json;athena6.fit.vutbr.cz/twitterstorm/dump.json;knot01.fit.vutbr.cz/twitterstorm/dump.json;knot02.fit.vutbr.cz/twitterstorm/dump.json;knot03.fit.vutbr.cz/twitterstorm/dump.json;knot04.fit.vutbr.cz/twitterstorm/dump.json", JSAP.NOT_REQUIRED, 'f', "Adresses of twitter dumps." )
+				}
+		);
+		
+
+		JSAPResult jsapResult = jsap.parse( params );
+		
+		TwitterStormTopology.BLOCK=jsapResult.getInt("blockSize");
+		TwitterStormTopology.PARALLELISM=jsapResult.getInt("parallelism");
+		//parallelism should be equal to length of files array
+		TwitterStormTopology.FILES=jsapResult.getString("files").split(";");
+		
+		String strategyString=jsapResult.getString("indexing");
+		IndexingStrategy strategy=strategyString.equals("internal")?IndexingStrategy.INTERNAL:strategyString.equals("external")?IndexingStrategy.EXTERNAL:IndexingStrategy.BOTH;
+		
 		Logger logger = LoggerFactory.getLogger(TwitterStormTopology.class);
         logger.debug("TOPOLOGY START");
         
@@ -194,7 +224,8 @@ public class TwitterStormTopology {
         POSBolt posBolt=new POSBolt(deploymentId);
         
         //IndexingStrategy decides where to store results (INTERNAL - lucene, EXTERNAL - elasticsearch or BOTH)
-        IndexBolt index=new IndexBolt(deploymentId,IndexingStrategy.BOTH,false);
+        //In case of internal strategy, last parameter indicates, whether RAMDirectory should be used
+        IndexBolt index=new IndexBolt(deploymentId,strategy,false);
         GenderBolt gender=new GenderBolt(deploymentId);
         LemmaBolt lemma=new LemmaBolt(deploymentId);
         NERBolt ner=new NERBolt(deploymentId);
@@ -231,6 +262,7 @@ public class TwitterStormTopology {
         
         Config conf = new Config();
         conf.setDebug(true);
+
 
         
         final LocalCluster cluster = new LocalCluster();

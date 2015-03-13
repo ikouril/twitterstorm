@@ -37,6 +37,7 @@ import backtype.storm.topology.base.BaseRichSpout;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Values;
 import cz.vutbr.fit.monitoring.Monitoring;
+import cz.vutbr.fit.twitterstorm.topologies.TwitterStormTopology;
 import cz.vutbr.fit.twitterstorm.util.Tweet;
 
 import org.apache.lucene.document.DateTools;
@@ -84,7 +85,7 @@ public class DumpSpout extends BaseRichSpout{
 		spoutCounter+=1;
 		log.info("Dump spout id: "+String.valueOf(spoutId));
 		try {
-			reader=new BufferedReader(new InputStreamReader(new URL("http://athena1.fit.vutbr.cz/twitterstorm/dump.json"+String.valueOf(spoutId)).openStream()));
+			reader=new BufferedReader(new InputStreamReader(new URL("http://"+TwitterStormTopology.FILES[spoutId]).openStream()));
 		} catch (MalformedURLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -120,8 +121,7 @@ public class DumpSpout extends BaseRichSpout{
 			try {
 				date = tweetDate==null?null:DateTools.stringToDate(tweetDate);
 			} catch (java.text.ParseException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				date=null;
 			}
 			Tweet tweet=new Tweet((String)json.get("text"), (String)json.get("name"), date);
 			if (block.size()==blockSize){

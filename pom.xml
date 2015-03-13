@@ -66,6 +66,11 @@
 			<artifactId>postgresql</artifactId>
 			<version>8.4-702.jdbc4</version>
 		</dependency>
+		<dependency>
+			<groupId>com.martiansoftware</groupId>
+			<artifactId>jsap</artifactId>
+			<version>2.1</version>
+		</dependency>
       <dependency>
 			<groupId>org.apache.jena</groupId>
 			<artifactId>jena-tdb</artifactId>
