@@ -82,7 +82,7 @@ public class SentenceSplitterBolt implements IRichBolt {
 		log.info("Sending sentenced tweets");
 		Long estimatedTime = System.nanoTime() - startTime;
 		try {
-			monitor.MonitorTuple("ParseBolt", id, textAnnots.size(),hostname, estimatedTime);
+			monitor.MonitorTuple("SentenceSplitterBolt", id, textAnnots.size(),hostname, estimatedTime);
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

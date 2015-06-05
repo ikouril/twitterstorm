@@ -101,7 +101,7 @@ public class SentimentBolt implements IRichBolt {
 		log.info("Sending sentimented data");
 		Long estimatedTime = System.nanoTime() - startTime;
 		try {
-			monitor.MonitorTuple("ParseBolt", id, textAnnots.size(),hostname, estimatedTime);
+			monitor.MonitorTuple("SentimentBolt", id, textAnnots.size(),hostname, estimatedTime);
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
